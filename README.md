@@ -120,14 +120,21 @@ deployments:
 | `Deploy ARC controller and runners` | Deploys or updates the controller and runner scale set |
 
 Run the workflows in that order. The ARC workflow pulls the official public
-runner image unless `ARC_RUNNER_IMAGE` overrides it.
+runner image configured in `arc-runners/terraform.auto.tfvars`.
+
+Configure these Terraform variables in `arc-runners/terraform.auto.tfvars`:
+
+| Variable | Example |
+|----------|---------|
+| `github_config_url` | `https://github.com/example-org` |
+| `github_app_id` | `123456` |
+| `github_app_installation_id` | `12345678` |
+| `runner_image` | `ghcr.io/actions/actions-runner:latest` |
 
 Configure these GitHub Actions repository variables:
 
 | Variable | Example |
 |----------|---------|
-| `ARC_GITHUB_CONFIG_URL` | `https://github.com/example-org` |
-| `ARC_RUNNER_IMAGE` | `ghcr.io/actions/actions-runner:latest` |
 | `TF_STATE_RESOURCE_GROUP` | `terraform-state-rg` |
 | `TF_STATE_STORAGE_ACCOUNT` | `myteamtfstate` |
 | `TF_STATE_CONTAINER` | `tfstate` |
@@ -137,17 +144,17 @@ Configure these GitHub Actions repository variables:
 Configure these GitHub Actions repository secrets:
 
 * `AZURE_CLIENT_ID`
+* `AZURE_CLIENT_SECRET`
 * `AZURE_TENANT_ID`
 * `AZURE_SUBSCRIPTION_ID`
-* `ARC_GITHUB_APP_ID`
-* `ARC_GITHUB_APP_INSTALLATION_ID`
 * `ARC_GITHUB_APP_PRIVATE_KEY`
 
-Configure a federated identity credential for the GitHub repository and grant
-its Azure identity the minimum permissions required by your scope. The
-workflows require permission to manage the deployment resources and access the
-state blob. Typical built-in roles are `Contributor` and
-`Storage Blob Data Contributor` at their corresponding scopes.
+Grant the service principal the minimum permissions required by your scope and
+rotate its client secret regularly. The workflows require permission to manage
+the deployment resources and access the state blob. Typical built-in roles are
+`Contributor` and `Storage Blob Data Contributor` at their corresponding
+scopes. Migrate to GitHub OIDC and a federated identity credential when the
+temporary client-secret setup is no longer needed.
 
 The state resource group, storage account, and blob container must exist before
 the first Terraform workflow runs. The `infra` and `arc-runners` roots use

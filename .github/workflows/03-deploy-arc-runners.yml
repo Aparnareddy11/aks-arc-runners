@@ -1,0 +1,97 @@
+name: Deploy ARC controller and runners
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-aks-arc
+  cancel-in-progress: false
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+  TF_STATE_RESOURCE_GROUP: ${{ vars.TF_STATE_RESOURCE_GROUP }}
+  TF_STATE_STORAGE_ACCOUNT: ${{ vars.TF_STATE_STORAGE_ACCOUNT }}
+  TF_STATE_CONTAINER: ${{ vars.TF_STATE_CONTAINER }}
+  INFRA_TF_STATE_KEY: ${{ vars.INFRA_TF_STATE_KEY }}
+  ARC_RUNNERS_TF_STATE_KEY: ${{ vars.ARC_RUNNERS_TF_STATE_KEY }}
+  TF_VAR_github_app_private_key: ${{ secrets.ARC_GITHUB_APP_PRIVATE_KEY }}
+
+jobs:
+  deploy:
+    name: Deploy controller and runner scale set
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: arc-runners
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.1
+
+      - name: Initialize Terraform
+        shell: pwsh
+        run: |
+          terraform init `
+            -backend-config="resource_group_name=$env:TF_STATE_RESOURCE_GROUP" `
+            -backend-config="storage_account_name=$env:TF_STATE_STORAGE_ACCOUNT" `
+            -backend-config="container_name=$env:TF_STATE_CONTAINER" `
+            -backend-config="key=$env:ARC_RUNNERS_TF_STATE_KEY" `
+            -backend-config="subscription_id=$env:ARM_SUBSCRIPTION_ID" `
+            -backend-config="tenant_id=$env:ARM_TENANT_ID" `
+            -backend-config="client_id=$env:ARM_CLIENT_ID" `
+            -backend-config="use_azuread_auth=true"
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive
+
+      - name: Validate Terraform
+        run: terraform validate
+
+      - name: Plan ARC controller and runners
+        shell: pwsh
+        run: |
+          terraform plan `
+            -out=arc-runners.tfplan `
+            -var="subscription_id=$env:ARM_SUBSCRIPTION_ID" `
+            -var="tenant_id=$env:ARM_TENANT_ID" `
+            -var="client_id=$env:ARM_CLIENT_ID" `
+            -var="tf_state_resource_group=$env:TF_STATE_RESOURCE_GROUP" `
+            -var="tf_state_storage_account=$env:TF_STATE_STORAGE_ACCOUNT" `
+            -var="tf_state_container=$env:TF_STATE_CONTAINER" `
+            -var="infra_tf_state_key=$env:INFRA_TF_STATE_KEY"
+
+      - name: Apply ARC controller and runners
+        run: terraform apply -auto-approve arc-runners.tfplan
+
+      - name: Write deployment summary
+        shell: pwsh
+        run: |
+          "## ARC controller and runners deployed" >> $env:GITHUB_STEP_SUMMARY
+          "* Controller namespace: $(terraform output -raw arc_controller_namespace)" >> $env:GITHUB_STEP_SUMMARY
+          "* Scale set: $(terraform output -raw runner_scale_set_name)" >> $env:GITHUB_STEP_SUMMARY
+          "* Runner namespace: $(terraform output -raw arc_runner_namespace)" >> $env:GITHUB_STEP_SUMMARY
+          "* Image: $(terraform output -raw runner_image)" >> $env:GITHUB_STEP_SUMMARY
