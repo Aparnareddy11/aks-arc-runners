@@ -53,16 +53,15 @@ jobs:
           terraform_version: 1.13.1
 
       - name: Initialize Terraform
-        shell: pwsh
         run: |
-          terraform init `
-            -backend-config="resource_group_name=$env:TF_STATE_RESOURCE_GROUP" `
-            -backend-config="storage_account_name=$env:TF_STATE_STORAGE_ACCOUNT" `
-            -backend-config="container_name=$env:TF_STATE_CONTAINER" `
-            -backend-config="key=$env:ARC_RUNNERS_TF_STATE_KEY" `
-            -backend-config="subscription_id=$env:ARM_SUBSCRIPTION_ID" `
-            -backend-config="tenant_id=$env:ARM_TENANT_ID" `
-            -backend-config="client_id=$env:ARM_CLIENT_ID" `
+          terraform init \
+            -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+            -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
+            -backend-config="container_name=${TF_STATE_CONTAINER}" \
+            -backend-config="key=${ARC_RUNNERS_TF_STATE_KEY}" \
+            -backend-config="subscription_id=${ARM_SUBSCRIPTION_ID}" \
+            -backend-config="tenant_id=${ARM_TENANT_ID}" \
+            -backend-config="client_id=${ARM_CLIENT_ID}" \
             -backend-config="use_azuread_auth=true"
 
       - name: Check Terraform formatting
@@ -72,26 +71,26 @@ jobs:
         run: terraform validate
 
       - name: Plan ARC controller and runners
-        shell: pwsh
         run: |
-          terraform plan `
-            -out=arc-runners.tfplan `
-            -var="subscription_id=$env:ARM_SUBSCRIPTION_ID" `
-            -var="tenant_id=$env:ARM_TENANT_ID" `
-            -var="client_id=$env:ARM_CLIENT_ID" `
-            -var="tf_state_resource_group=$env:TF_STATE_RESOURCE_GROUP" `
-            -var="tf_state_storage_account=$env:TF_STATE_STORAGE_ACCOUNT" `
-            -var="tf_state_container=$env:TF_STATE_CONTAINER" `
-            -var="infra_tf_state_key=$env:INFRA_TF_STATE_KEY"
+          terraform plan \
+            -out=arc-runners.tfplan \
+            -var="subscription_id=${ARM_SUBSCRIPTION_ID}" \
+            -var="tenant_id=${ARM_TENANT_ID}" \
+            -var="client_id=${ARM_CLIENT_ID}" \
+            -var="tf_state_resource_group=${TF_STATE_RESOURCE_GROUP}" \
+            -var="tf_state_storage_account=${TF_STATE_STORAGE_ACCOUNT}" \
+            -var="tf_state_container=${TF_STATE_CONTAINER}" \
+            -var="infra_tf_state_key=${INFRA_TF_STATE_KEY}"
 
       - name: Apply ARC controller and runners
         run: terraform apply -auto-approve arc-runners.tfplan
 
       - name: Write deployment summary
-        shell: pwsh
         run: |
-          "## ARC controller and runners deployed" >> $env:GITHUB_STEP_SUMMARY
-          "* Controller namespace: $(terraform output -raw arc_controller_namespace)" >> $env:GITHUB_STEP_SUMMARY
-          "* Scale set: $(terraform output -raw runner_scale_set_name)" >> $env:GITHUB_STEP_SUMMARY
-          "* Runner namespace: $(terraform output -raw arc_runner_namespace)" >> $env:GITHUB_STEP_SUMMARY
-          "* Image: $(terraform output -raw runner_image)" >> $env:GITHUB_STEP_SUMMARY
+          {
+            echo "## ARC controller and runners deployed"
+            echo "* Controller namespace: $(terraform output -raw arc_controller_namespace)"
+            echo "* Scale set: $(terraform output -raw runner_scale_set_name)"
+            echo "* Runner namespace: $(terraform output -raw arc_runner_namespace)"
+            echo "* Image: $(terraform output -raw runner_image)"
+          } >> "$GITHUB_STEP_SUMMARY"
