@@ -6,7 +6,7 @@ tf_state_storage_account = "myteamtfstate"
 tf_state_container       = "tfstate"
 infra_tf_state_key       = "arc/dev/infra.tfstate"
 
-github_config_url          = "https://github.com/Aparnareddy11"
+github_config_url          = "https://github.com/Aparnareddy11/aks-arc-runners"
 github_app_id              = "3065029"
 github_app_installation_id = "115599835"
 runner_image               = "ghcr.io/actions/actions-runner:latest"
