@@ -51,16 +51,15 @@ jobs:
           terraform_version: 1.13.1
 
       - name: Initialize Terraform
-        shell: pwsh
         run: |
-          terraform init `
-            -backend-config="resource_group_name=$env:TF_STATE_RESOURCE_GROUP" `
-            -backend-config="storage_account_name=$env:TF_STATE_STORAGE_ACCOUNT" `
-            -backend-config="container_name=$env:TF_STATE_CONTAINER" `
-            -backend-config="key=$env:INFRA_TF_STATE_KEY" `
-            -backend-config="subscription_id=$env:ARM_SUBSCRIPTION_ID" `
-            -backend-config="tenant_id=$env:ARM_TENANT_ID" `
-            -backend-config="client_id=$env:ARM_CLIENT_ID" `
+          terraform init \
+            -backend-config="resource_group_name=${TF_STATE_RESOURCE_GROUP}" \
+            -backend-config="storage_account_name=${TF_STATE_STORAGE_ACCOUNT}" \
+            -backend-config="container_name=${TF_STATE_CONTAINER}" \
+            -backend-config="key=${INFRA_TF_STATE_KEY}" \
+            -backend-config="subscription_id=${ARM_SUBSCRIPTION_ID}" \
+            -backend-config="tenant_id=${ARM_TENANT_ID}" \
+            -backend-config="client_id=${ARM_CLIENT_ID}" \
             -backend-config="use_azuread_auth=true"
 
       - name: Check Terraform formatting
@@ -70,18 +69,18 @@ jobs:
         run: terraform validate
 
       - name: Plan AKS infrastructure
-        shell: pwsh
         run: |
-          terraform plan `
-            -out=aks.tfplan `
-            -var="subscription_id=$env:ARM_SUBSCRIPTION_ID" `
-            -var="tenant_id=$env:ARM_TENANT_ID"
+          terraform plan \
+            -out=aks.tfplan \
+            -var="subscription_id=${ARM_SUBSCRIPTION_ID}" \
+            -var="tenant_id=${ARM_TENANT_ID}"
 
       - name: Apply AKS infrastructure
         run: terraform apply -auto-approve aks.tfplan
 
       - name: Write deployment summary
-        shell: pwsh
         run: |
-          "## AKS infrastructure deployed" >> $env:GITHUB_STEP_SUMMARY
-          "* AKS: $(terraform output -raw aks_cluster_name)" >> $env:GITHUB_STEP_SUMMARY
+          {
+            echo "## AKS infrastructure deployed"
+            echo "* AKS: $(terraform output -raw aks_cluster_name)"
+          } >> "$GITHUB_STEP_SUMMARY"
