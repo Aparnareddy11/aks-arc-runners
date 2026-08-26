@@ -1,0 +1,44 @@
+name: Test ARC runner with Azure CLI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  azure-smoke-test:
+    name: Sign in and list Azure resources
+    runs-on: arc-runner-set
+    timeout-minutes: 15
+
+    steps:
+      - name: Install Azure CLI
+        shell: bash
+        run: |
+          if ! command -v az >/dev/null 2>&1; then
+            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          fi
+          az version
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
+
+      - name: List Azure subscription and resource groups
+        shell: bash
+        run: |
+          az account show \
+            --query '{Name:name, SubscriptionId:id, TenantId:tenantId}' \
+            --output table
+
+          az group list \
+            --query '[].{Name:name, Location:location}' \
+            --output table
