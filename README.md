@@ -28,10 +28,47 @@ the GitHub Actions Runner Controller (ARC) and one ephemeral runner scale set.
     `-- 04-test-arc-runner.yml
 ```
 
-[![ARC architecture on AKS](docs/arc-architecture.svg)](docs/arc-architecture.drawio)
+```mermaid
+flowchart TB
+  GH["GitHub<br/>repo, org, or enterprise scope"]
 
-Open the linked [draw.io source](docs/arc-architecture.drawio) to edit the
-diagram in diagrams.net or the VS Code Draw.io Integration extension.
+  subgraph AKS["Azure Kubernetes Service (AKS)"]
+    direction TB
+
+    subgraph SYSTEMS["Controller namespace: arc-systems"]
+      direction LR
+      CONTROLLER["ARC<br/>Controller"]
+      LISTENER["Listener"]
+      CONTROLLER -->|"2. Manages"| LISTENER
+    end
+
+    subgraph RUNNERS["Runner namespace: arc-runners"]
+      direction TB
+      SCALESET["Runner<br/>Scale Set"]
+      RUNNER1["Runner Pod"]
+      RUNNER2["Runner Pod"]
+      RUNNER3["Runner Pod<br/>(ephemeral)"]
+
+      SCALESET -->|"4. Creates pods"| RUNNER1
+      SCALESET --> RUNNER2
+      SCALESET -.-> RUNNER3
+    end
+
+    LISTENER -->|"3. Sets desired count"| SCALESET
+  end
+
+  GH -->|"1. Registers and long-polls"| LISTENER
+  RUNNER3 -.->|"5. Runs job and reports status"| GH
+
+  style GH fill:#24292f,stroke:#24292f,color:#ffffff
+  style AKS fill:#e8f3ff,stroke:#2589e8,stroke-width:2px
+  style SYSTEMS fill:#f5f9ff,stroke:#75afe8,stroke-width:2px
+  style RUNNERS fill:#f3fbef,stroke:#9acb77,stroke-width:2px
+  style CONTROLLER fill:#3277dd,stroke:#1c5bb8,color:#ffffff
+  style LISTENER fill:#3277dd,stroke:#1c5bb8,color:#ffffff
+  style SCALESET fill:#3277dd,stroke:#1c5bb8,color:#ffffff
+  style RUNNER3 fill:#dceaff,stroke:#78a9ef
+```
 
 The controller and runner workloads use separate namespaces, following GitHub's
 security recommendation. Runner pods execute arbitrary workflow code, so this
