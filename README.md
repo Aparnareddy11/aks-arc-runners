@@ -28,22 +28,10 @@ the GitHub Actions Runner Controller (ARC) and one ephemeral runner scale set.
     `-- 04-test-arc-runner.yml
 ```
 
-```mermaid
-flowchart LR
-    GH[GitHub Actions] --> L[ARC listener]
-    L --> C[ARC controller]
-    C --> R[Ephemeral runner pods]
-    subgraph AKS
-        subgraph arc-systems
-            C
-        end
-        subgraph arc-runners
-            L
-            R
-            S[GitHub App secret]
-        end
-    end
-```
+[![ARC architecture on AKS](docs/arc-architecture.svg)](docs/arc-architecture.drawio)
+
+Open the linked [draw.io source](docs/arc-architecture.drawio) to edit the
+diagram in diagrams.net or the VS Code Draw.io Integration extension.
 
 The controller and runner workloads use separate namespaces, following GitHub's
 security recommendation. Runner pods execute arbitrary workflow code, so this

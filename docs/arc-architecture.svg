@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="850" viewBox="0 0 1100 850" role="img" aria-labelledby="title description">
+  <title id="title">GitHub Actions Runner Controller on Azure Kubernetes Service</title>
+  <desc id="description">GitHub communicates with an ARC listener in the controller namespace. The listener works with the controller and runner scale set to create ephemeral runner pods in a separate runner namespace.</desc>
+  <defs>
+    <marker id="arrow-gray" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#57606a"/></marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#5596df"/></marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#84bb63"/></marker>
+    <style>
+      text { font-family: Segoe UI, Arial, sans-serif; fill: #24292f; }
+      .label { font-size: 13px; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .node-label { fill: #fff; font-size: 14px; font-weight: 700; text-anchor: middle; }
+    </style>
+  </defs>
+  <rect width="1100" height="850" fill="#fff"/>
+  <rect x="400" y="20" width="300" height="90" rx="14" fill="#24292f"/>
+  <circle cx="550" cy="48" r="16" fill="#fff"/>
+  <text x="550" y="77" fill="#fff" font-size="16" font-weight="700" text-anchor="middle">GitHub</text>
+  <text x="550" y="96" fill="#fff" font-size="13" text-anchor="middle">repo, org, or enterprise scope</text>
+  <rect x="75" y="145" width="950" height="650" rx="28" fill="#e8f3ff" stroke="#2589e8" stroke-width="2"/>
+  <text x="105" y="180" fill="#0875cf" font-size="18" font-weight="700">Azure Kubernetes Service (AKS)</text>
+  <rect x="135" y="220" width="830" height="245" rx="24" fill="#f5f9ff" stroke="#75afe8" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="160" y="252" fill="#4d74a0" font-size="15" font-style="italic">Controller namespace - arc-systems</text>
+  <rect x="135" y="500" width="830" height="245" rx="24" fill="#f3fbef" stroke="#9acb77" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="160" y="532" fill="#63983f" font-size="15" font-style="italic">Runner namespace - arc-runners</text>
+  <path d="M285 305 H355 L390 352 L355 400 H285 L250 352 Z" fill="#3277dd" stroke="#1c5bb8" stroke-width="2"/>
+  <text class="node-label" x="320" y="348"><tspan x="320">ARC</tspan><tspan x="320" dy="19">Controller</tspan></text>
+  <path d="M715 305 H785 L820 352 L785 400 H715 L680 352 Z" fill="#3277dd" stroke="#1c5bb8" stroke-width="2"/>
+  <text class="node-label" x="750" y="358">Listener</text>
+  <path d="M495 545 H585 L620 595 L585 645 H495 L460 595 Z" fill="#3277dd" stroke="#1c5bb8" stroke-width="2"/>
+  <text class="node-label" x="540" y="591"><tspan x="540">Runner</tspan><tspan x="540" dy="19">Scale Set</tspan></text>
+  <rect x="225" y="675" width="150" height="52" rx="8" fill="#fff" stroke="#3277dd" stroke-width="3"/>
+  <text x="300" y="706" font-size="14" font-weight="700" text-anchor="middle">Runner Pod</text>
+  <rect x="465" y="675" width="150" height="52" rx="8" fill="#fff" stroke="#3277dd" stroke-width="3"/>
+  <text x="540" y="706" font-size="14" font-weight="700" text-anchor="middle">Runner Pod</text>
+  <rect x="700" y="675" width="185" height="52" rx="8" fill="#dceaff" stroke="#78a9ef" stroke-width="3"/>
+  <text x="792" y="697" font-size="14" font-weight="700" text-anchor="middle"><tspan x="792">Runner Pod</tspan><tspan x="792" dy="17">(ephemeral)</tspan></text>
+  <path d="M550 110 L730 300" fill="none" stroke="#57606a" stroke-width="2" marker-end="url(#arrow-gray)"/>
+  <text class="label" x="600" y="205">1 - register and long-poll</text>
+  <path d="M390 352 H675" fill="none" stroke="#5596df" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text class="label" x="480" y="340">2 - manages</text>
+  <path d="M720 405 L575 540" fill="none" stroke="#5596df" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text class="label" x="625" y="470">3 - set desired count</text>
+  <path d="M500 645 L330 671" fill="none" stroke="#84bb63" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <path d="M540 645 V670" fill="none" stroke="#84bb63" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <path d="M580 645 L750 671" fill="none" stroke="#84bb63" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow-green)"/>
+  <text class="label" x="430" y="665">4 - create pods</text>
+  <path d="M885 701 H995 V65 H705" fill="none" stroke="#57606a" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrow-gray)"/>
+  <text class="label" x="825" y="335" transform="rotate(90 825 335)">5 - run job and report status</text>
+</svg>
