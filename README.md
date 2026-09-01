@@ -30,44 +30,53 @@ the GitHub Actions Runner Controller (ARC) and one ephemeral runner scale set.
 
 ```mermaid
 flowchart TB
-  GH["GitHub<br/>repo, org, or enterprise scope"]
+  GH["GitHub<br/>Repository, organization, or enterprise"]
 
   subgraph AKS["Azure Kubernetes Service (AKS)"]
     direction TB
 
     subgraph SYSTEMS["Controller namespace: arc-systems"]
       direction LR
-      CONTROLLER["ARC<br/>Controller"]
-      LISTENER["Listener"]
-      CONTROLLER -->|"2. Manages"| LISTENER
+      CONTROLLER{{"ARC<br/>Controller"}}
+      LISTENER{{"Listener"}}
     end
 
     subgraph RUNNERS["Runner namespace: arc-runners"]
       direction TB
-      SCALESET["Runner<br/>Scale Set"]
-      RUNNER1["Runner Pod"]
-      RUNNER2["Runner Pod"]
-      RUNNER3["Runner Pod<br/>(ephemeral)"]
+      SCALESET{{"Runner<br/>Scale Set"}}
 
-      SCALESET -->|"4. Creates pods"| RUNNER1
-      SCALESET --> RUNNER2
-      SCALESET -.-> RUNNER3
+      subgraph PODS[" "]
+        direction LR
+        RUNNER1["Runner Pod"]
+        RUNNER2["Runner Pod"]
+        RUNNER3["Runner Pod<br/>(ephemeral)"]
+      end
     end
-
-    LISTENER -->|"3. Sets desired count"| SCALESET
   end
 
-  GH -->|"1. Registers and long-polls"| LISTENER
-  RUNNER3 -.->|"5. Runs job and reports status"| GH
+  CONTROLLER -->|"2. Manage"| LISTENER
+  SCALESET -->|"4. Create"| RUNNER1
+  SCALESET -->|"4. Create"| RUNNER2
+  SCALESET -.->|"4. Create"| RUNNER3
 
-  style GH fill:#24292f,stroke:#24292f,color:#ffffff
-  style AKS fill:#e8f3ff,stroke:#2589e8,stroke-width:2px
-  style SYSTEMS fill:#f5f9ff,stroke:#75afe8,stroke-width:2px
-  style RUNNERS fill:#f3fbef,stroke:#9acb77,stroke-width:2px
-  style CONTROLLER fill:#3277dd,stroke:#1c5bb8,color:#ffffff
-  style LISTENER fill:#3277dd,stroke:#1c5bb8,color:#ffffff
-  style SCALESET fill:#3277dd,stroke:#1c5bb8,color:#ffffff
-  style RUNNER3 fill:#dceaff,stroke:#78a9ef
+  GH -->|"1. Register and long-poll"| SYSTEMS
+  SYSTEMS -->|"3. Set desired count"| RUNNERS
+  RUNNERS -.->|"5. Run job and report status"| STATUS["GitHub<br/>Job status"]
+
+  classDef control fill:#3277dd,stroke:#1c5bb8,stroke-width:2px,color:#ffffff
+  classDef runner fill:#ffffff,stroke:#3277dd,stroke-width:2px,color:#24292f
+  classDef ephemeral fill:#dceaff,stroke:#78a9ef,stroke-width:2px,color:#24292f
+
+  class CONTROLLER,LISTENER,SCALESET control
+  class RUNNER1,RUNNER2 runner
+  class RUNNER3 ephemeral
+
+  style GH fill:#24292f,stroke:#24292f,stroke-width:2px,color:#ffffff
+  style STATUS fill:#24292f,stroke:#24292f,stroke-width:2px,color:#ffffff
+  style AKS fill:#e8f3ff,stroke:#2589e8,stroke-width:2px,color:#0875cf
+  style SYSTEMS fill:#f5f9ff,stroke:#75afe8,stroke-width:2px,color:#4d74a0
+  style RUNNERS fill:#f3fbef,stroke:#9acb77,stroke-width:2px,color:#63983f
+  style PODS fill:transparent,stroke:transparent
 ```
 
 The controller and runner workloads use separate namespaces, following GitHub's
