@@ -7,6 +7,22 @@ the configured workload limits. Included GitHub Actions workflows deploy the
 infrastructure and runner components separately, then verify the runner scale
 set by executing an authenticated Azure CLI job.
 
+## Version information
+
+### Version 1 (current)
+
+* Uses a public AKS API endpoint with private cluster mode disabled
+* Runs ARC components and runner pods on the shared default system node pool
+* Uses the official GitHub Actions runner image from `ghcr.io`
+* Pulls the runner image directly from the public GitHub Container Registry.
+
+### Version 2 (planned)
+
+* Uses a fully private AKS cluster
+* Isolates runner pods on a dedicated node pool
+* Uses a custom runner image containing the required workflow tools
+* Pulls the custom image from a private container registry.
+
 ## Architecture
 
 Two Terraform root modules separate infrastructure from runner configuration.
