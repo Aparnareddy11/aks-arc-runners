@@ -1,24 +1,31 @@
----
-title: AKS Actions Runner Controller
-description: Deploy AKS and GitHub Actions Runner Controller with Terraform
-ms.date: 2026-08-18
-ms.topic: how-to
----
+## Description
+
+This repository provisions an Azure Kubernetes Service (AKS) cluster and
+deploys GitHub Actions Runner Controller (ARC) with Terraform. ARC creates
+isolated, ephemeral self-hosted runners on demand and scales them according to
+the configured workload limits. Included GitHub Actions workflows deploy the
+infrastructure and runner components separately, then verify the runner scale
+set by executing an authenticated Azure CLI job.
 
 ## Architecture
 
 Two Terraform root modules separate infrastructure from runner configuration.
-The `infra` module deploys AKS. The `arc-runners` module reads the AKS outputs
-from the infra state and deploys the GitHub Actions Runner Controller (ARC) and
-one ephemeral runner scale set.
+The `infra` module deploys a resource group and a public AKS cluster with Azure
+RBAC, Azure CNI Overlay networking, autoscaling, OIDC, and workload identity.
+The `arc-runners` module reads the AKS outputs from Azure Blob state and deploys
+the GitHub Actions Runner Controller (ARC) and one ephemeral runner scale set.
 
 ```text
 .
 |-- infra/
 |   `-- aks.tf
-`-- arc-runners/
-  |-- arc-controller.tf
-  `-- runners.tf
+|-- arc-runners/
+|   |-- arc-controller.tf
+|   `-- runners.tf
+`-- .github/workflows/
+    |-- 01-deploy-aks-arc.yml
+    |-- 03-deploy-arc-runners.yml
+    `-- 04-test-arc-runner.yml
 ```
 
 ```mermaid
@@ -47,7 +54,9 @@ AKS cluster should not share nodes with sensitive production workloads.
 * Terraform 1.6 or later
 * Azure CLI authenticated with `az login`
 * An Azure subscription where you can create a resource group and AKS cluster
-* A GitHub organization-owned GitHub App installed in the target organization
+* An Azure Blob container for the two Terraform state files
+* A GitHub App installed in the account that owns the target organization or
+  repository
 
 Configure the GitHub App with these permissions:
 
@@ -58,8 +67,13 @@ Configure the GitHub App with these permissions:
 ## Configure
 
 Update Azure deployment values in `infra/terraform.auto.tfvars`. Set
-`github_config_url`, the GitHub App IDs, and infrastructure state settings in
-`arc-runners/terraform.auto.tfvars`.
+`github_config_url`, the GitHub App IDs, Azure authentication values, and
+infrastructure state settings in `arc-runners/terraform.auto.tfvars`.
+
+The committed `terraform.auto.tfvars` files contain deployment-specific example
+values. Replace the subscription, tenant, naming, state storage, GitHub URL, and
+GitHub App values before deployment. The `client_id` input in the runner module
+is the Microsoft Entra application ID used to authenticate to the remote state.
 
 Keep the GitHub App private key out of files and shell history. In PowerShell,
 load it into a sensitive Terraform environment variable:
@@ -87,11 +101,18 @@ privileged runner pods.
 
 ## Deploy
 
-Format, initialize, validate, review, and apply the configuration:
+Both Terraform roots declare an `azurerm` backend. Supply the state resource
+group, storage account, container, and a distinct key when initializing each
+root. Then format, validate, review, and apply the configuration:
 
 ```powershell
 terraform -chdir=infra fmt
-terraform -chdir=infra init
+terraform -chdir=infra init `
+  -backend-config="resource_group_name=terraform-state-rg" `
+  -backend-config="storage_account_name=myteamtfstate" `
+  -backend-config="container_name=tfstate" `
+  -backend-config="key=arc/dev/infra.tfstate" `
+  -backend-config="use_azuread_auth=true"
 terraform -chdir=infra validate
 terraform -chdir=infra plan -out infra.tfplan
 terraform -chdir=infra apply infra.tfplan
@@ -103,7 +124,12 @@ Deploy ARC after AKS is available:
 
 ```powershell
 terraform -chdir=arc-runners fmt
-terraform -chdir=arc-runners init
+terraform -chdir=arc-runners init `
+  -backend-config="resource_group_name=terraform-state-rg" `
+  -backend-config="storage_account_name=myteamtfstate" `
+  -backend-config="container_name=tfstate" `
+  -backend-config="key=arc/dev/runners.tfstate" `
+  -backend-config="use_azuread_auth=true"
 terraform -chdir=arc-runners validate
 terraform -chdir=arc-runners plan -out arc-runners.tfplan
 terraform -chdir=arc-runners apply arc-runners.tfplan
@@ -111,25 +137,30 @@ terraform -chdir=arc-runners apply arc-runners.tfplan
 
 ## GitHub Actions pipelines
 
-Two manually triggered workflows separate infrastructure and runner
-deployments:
+Three manually triggered workflows deploy and test the environment:
 
-| Workflow | Purpose |
-|----------|---------|
-| `Deploy AKS infrastructure` | Creates AKS |
-| `Deploy ARC controller and runners` | Deploys or updates the controller and runner scale set |
+| Workflow                            | Runner              | Purpose                                               |
+|-------------------------------------|---------------------|-------------------------------------------------------|
+| `Deploy AKS infrastructure`         | `ubuntu-latest`     | Creates or updates the resource group and AKS cluster |
+| `Deploy ARC controller and runners` | `ubuntu-latest`     | Deploys the controller and runner scale set           |
+| `Test ARC runner with Azure CLI`    | `arc-runner-set`    | Signs in to Azure and lists resource groups           |
 
-Run the workflows in that order. The ARC workflow pulls the official public
-runner image configured in `arc-runners/terraform.auto.tfvars`.
+Run the workflows in that order. Both deployment workflows pin Terraform
+`1.13.1`, validate formatting and configuration, create and apply a saved plan,
+and use the same concurrency group to prevent overlapping deployments. The ARC
+workflow pulls the runner image configured in
+`arc-runners/terraform.auto.tfvars`.
 
 Configure these Terraform variables in `arc-runners/terraform.auto.tfvars`:
 
 | Variable | Example |
 |----------|---------|
+| `client_id` | `00000000-0000-0000-0000-000000000000` |
 | `github_config_url` | `https://github.com/example-org` |
 | `github_app_id` | `123456` |
 | `github_app_installation_id` | `12345678` |
 | `runner_image` | `ghcr.io/actions/actions-runner:latest` |
+| `runner_scale_set_name` | `arc-runner-set` |
 
 Configure these GitHub Actions repository variables:
 
@@ -148,6 +179,9 @@ Configure these GitHub Actions repository secrets:
 * `AZURE_TENANT_ID`
 * `AZURE_SUBSCRIPTION_ID`
 * `ARC_GITHUB_APP_PRIVATE_KEY`
+
+The Azure credentials are used by all three workflows. The GitHub App private
+key is used only by the ARC deployment workflow.
 
 Grant the service principal the minimum permissions required by your scope and
 rotate its client secret regularly. The workflows require permission to manage
@@ -184,8 +218,12 @@ kubectl get pods -n (terraform -chdir=arc-runners output -raw arc_runner_namespa
 helm list --all-namespaces
 ```
 
-Use the value from
-`terraform -chdir=arc-runners output -raw runner_scale_set_name` in a workflow:
+Run the `Test ARC runner with Azure CLI` workflow to verify that GitHub can
+schedule a job on the scale set and that the runner can authenticate to Azure.
+The workflow installs Azure CLI when the runner image does not contain it.
+
+For other jobs, use the value from `terraform -chdir=arc-runners output -raw
+runner_scale_set_name` in `runs-on`:
 
 ```yaml
 jobs:
@@ -200,17 +238,25 @@ jobs:
 
 The commonly changed inputs are:
 
-| Input                   | Default                                    | Purpose                               |
-|-------------------------|--------------------------------------------|---------------------------------------|
-| `location`              | `southeastasia`                            | Azure deployment region               |
-| `node_vm_size`          | `Standard_D4ds_v5`                         | Default node pool VM size             |
-| `node_min_count`        | `1`                                        | Minimum AKS node count                |
-| `node_max_count`        | `3`                                        | Maximum AKS node count                |
-| `arc_chart_version`     | `0.12.1`                                   | Pinned ARC Helm chart version         |
-| `min_runners`           | `0`                                        | Warm idle runners                     |
-| `max_runners`           | `10`                                       | Runner concurrency limit              |
-| `runner_image`          | `ghcr.io/actions/actions-runner:latest`    | Full runner image reference           |
-| `runner_container_mode` | `null`                                     | Optional ARC container execution mode |
+| Input                      | Default                                 | Purpose                                       |
+|----------------------------|-----------------------------------------|-----------------------------------------------|
+| `location`                 | `southeastasia`                         | Azure deployment region                       |
+| `name_prefix`              | `arc`                                   | Prefix for Azure resource names               |
+| `environment`              | `dev`                                   | Environment name used in names and tags       |
+| `kubernetes_version`       | `null`                                  | AKS version, or the current Azure default      |
+| `aks_sku_tier`             | `Free`                                  | AKS control plane SKU tier                     |
+| `node_vm_size`             | `Standard_D4ds_v5`                      | Default node pool VM size                     |
+| `node_min_count`           | `1`                                     | Minimum autoscaling node count                |
+| `node_max_count`           | `3`                                     | Maximum autoscaling node count                |
+| `availability_zones`       | `["2"]`                                 | Default node pool availability zones          |
+| `arc_controller_namespace` | `arc-systems`                           | ARC controller namespace                      |
+| `arc_runner_namespace`     | `arc-runners`                           | Listener and runner namespace                 |
+| `arc_chart_version`        | `0.12.1`                                | Controller and runner scale set chart version |
+| `runner_scale_set_name`    | `arc-runner-set`                        | GitHub Actions `runs-on` label                 |
+| `min_runners`              | `0`                                     | Minimum idle runner count                     |
+| `max_runners`              | `10`                                    | Maximum runner count                          |
+| `runner_image`             | `ghcr.io/actions/actions-runner:latest` | Full runner image reference                   |
+| `runner_container_mode`    | `null`                                  | Optional ARC container execution mode         |
 
 ## Destroy
 
@@ -225,4 +271,4 @@ terraform -chdir=infra destroy
 
 ARC chart upgrades can include custom resource definition changes that Helm
 cannot update in place. Review the GitHub ARC upgrade guidance before changing
-`arc_chart_version`.# aks-arc-runners
+`arc_chart_version`.
